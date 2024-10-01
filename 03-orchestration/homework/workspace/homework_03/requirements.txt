@@ -1,0 +1,4 @@
+pandas
+scikit-learn
+requests
+mlflow==2.12.1

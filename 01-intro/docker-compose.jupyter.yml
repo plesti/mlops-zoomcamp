@@ -1,0 +1,9 @@
+services:
+  jupyter:
+    image: jupyter/pyspark-notebook
+    network_mode: host
+    volumes: 
+      - ../:/home/jovyan/work
+    user: root
+    command: jupyter notebook --ip='*' --NotebookApp.token='' --NotebookApp.password='' --notebook-dir /home/jovyan/work --allow-root
+
