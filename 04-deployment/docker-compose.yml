@@ -1,0 +1,54 @@
+services:
+  jupyter:
+    extends:
+      file: ../01-intro/docker-compose.jupyter.yml
+      service: jupyter
+    env_file: minio.env
+    volumes: 
+     - .jupyter:/home/jovyan/work
+     - /var/run/docker.sock:/var/run/docker.sock
+    privileged: true
+  mlflow:
+    extends:
+      file: ../03-orchestration/homework/docker-compose.mageai.yml
+      service: mlflow
+    env_file: minio.env
+    volumes:
+      - .mlflow_data:/home/mlflow_data/
+    command: sh -c "pip install boto3 && mlflow server --backend-store-uri sqlite:///home/mlflow_data/mlflow.db --host 0.0.0.0 --port 5000 --default-artifact-root=s3://mlflow"
+  minio:
+    image: minio/minio
+    env_file: minio.env
+    networks:
+     - traefik
+    volumes:
+     - .miniodata:/mnt/data
+    labels:
+     - "traefik.http.routers.minio.rule=Host(`minio.localhost`)"
+     - "traefik.http.services.minio.loadbalancer.server.port=9000"
+    tty: true
+    # healthcheck:
+    #   test: wget --spider http://minio:9000
+    #   interval: 2s
+    #   start_period: 2s
+    command: server /mnt/data --console-address ":9000" --address ":9001"
+  # Create access key and bucket for mlflow
+  initialize-minio-s3:
+    image: minio/mc
+    networks:
+     - traefik
+    env_file: minio.env
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c 'sleep 20;
+      /usr/bin/mc alias set s3service $${MLFLOW_S3_ENDPOINT_URL} "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}";
+      /usr/bin/mc mb s3service/"$${BUCKET_NAME}";
+      /usr/bin/mc admin user add s3service "$${AWS_ACCESS_KEY_ID}" "$${AWS_SECRET_ACCESS_KEY}";
+      /usr/bin/mc admin policy attach s3service readwrite --user "$${AWS_ACCESS_KEY_ID}";
+      exit 0;
+      '
+
+networks:
+  traefik:
+    external: true

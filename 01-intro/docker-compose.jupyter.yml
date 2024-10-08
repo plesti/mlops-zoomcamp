@@ -1,9 +1,21 @@
 services:
   jupyter:
     image: jupyter/pyspark-notebook
-    network_mode: host
+    # network_mode: host
+    # ports:
+    # - 8888:8888
+    networks:
+     - traefik
     volumes: 
       - ../:/home/jovyan/work
     user: root
-    command: jupyter notebook --ip='*' --NotebookApp.token='' --NotebookApp.password='' --notebook-dir /home/jovyan/work --allow-root
+    labels:
+      - "traefik.http.routers.jupyter.rule=Host(`jupyter.localhost`)"
+      - "traefik.http.services.jupyter.loadbalancer.server.port=8888"
+    
+    # https://github.com/jupyterlab-contrib/jupyterlab-spreadsheet-editor
+    command: sh -c "pip install jupyterlab-spreadsheet-editor && jupyter notebook --ip='*' --NotebookApp.token='' --NotebookApp.password='' --notebook-dir /home/jovyan/work --allow-root"
 
+networks:
+  traefik:
+    external: true
