@@ -1,0 +1,63 @@
+version: '3.7'
+
+volumes: 
+  grafana_data: {}
+
+networks:
+  front-tier:
+    # Created in 01-intro/docker-compose.traefik.yml
+    name: traefik
+    external: true
+  back-tier:
+
+services:
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: example
+    ports:
+      - "5432:5432"
+    networks:
+      - back-tier
+
+  adminer:
+    image: adminer
+    restart: always
+    networks:
+      - back-tier
+      - front-tier
+    labels:
+      - "traefik.http.routers.adminer.rule=Host(`adminer.localhost`)"
+      - "traefik.http.services.adminer.loadbalancer.server.port=8080"
+      - "traefik.docker.network=traefik"
+
+  grafana:
+    image: grafana/grafana-enterprise
+    user: "472"
+    volumes:
+      - ./config/grafana_datasources.yaml:/etc/grafana/provisioning/datasources/datasource.yaml:ro
+      - ./config/grafana_dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
+      - ./dashboards:/opt/grafana/dashboards
+    networks:
+      - back-tier
+      - front-tier
+    labels:
+      - "traefik.http.routers.grafana.rule=Host(`grafana.localhost`)"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "traefik.docker.network=traefik"
+    restart: always
+
+  python:
+    image: python:3.10.13-slim
+    networks:
+      - back-tier
+      - front-tier
+    volumes:
+      - "./src:/root/code"
+    working_dir: /root/code
+    labels:
+      - "traefik.http.routers.jupyter.rule=Host(`nb.localhost`)"
+      - "traefik.http.services.jupyter.loadbalancer.server.port=8888"
+      - "traefik.docker.network=traefik"
+    command: sh -c "pip install -r requirements.txt && jupyter notebook --allow-root --ip='*' --NotebookApp.token='' homework.ipynb"
