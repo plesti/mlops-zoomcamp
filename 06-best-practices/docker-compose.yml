@@ -1,0 +1,21 @@
+version: '3.7'
+
+services:
+  python:
+    image: python:3.10.13-slim
+    volumes:
+     - "./:/root/code"
+    environment:
+      # Default localstack credentials
+     - AWS_ACCESS_KEY_ID=test
+     - AWS_SECRET_ACCESS_KEY=test
+     - AWS_DEFAULT_REGION=us-east-1
+     - S3_ENDPOINT_URL=http://localstack:4566
+    working_dir: /root/code
+    command: sh run.sh
+    depends_on:
+      localstack:
+        condition: service_healthy
+
+  localstack:
+    image: localstack/localstack:s3-latest
